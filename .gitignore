@@ -1,0 +1,16 @@
+## .NET / Visual Studio
+bin/
+obj/
+out/
+publish*/
+.vs/
+*.user
+*.suo
+
+## OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+## Packages
+*.zip
