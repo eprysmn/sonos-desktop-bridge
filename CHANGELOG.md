@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1
+
+- Every option in the settings card now has a short explanation, in particular "only if Sonos is on the local (line-in) source".
+
 ## 0.6.0
 
 - The Sonos room and the Windows output are now explicit settings that can be locked. The app no longer picks a room automatically at startup (it could select whichever room happened to be playing).
