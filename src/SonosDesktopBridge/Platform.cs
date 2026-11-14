@@ -11,13 +11,19 @@ internal sealed class AppSettings
     public string? RoomName { get; set; }
     public string? LastIp { get; set; }
     public string? OutputId { get; set; }
+    public string? OutputName { get; set; }
+    public bool LockRoom { get; set; } = true;
+    public bool LockOutput { get; set; } = true;
     public int Step { get; set; } = 2;
     public bool InterceptKeys { get; set; } = true;
     public bool OnlyLineIn { get; set; }
     public bool ShowOsd { get; set; } = true;
 
+    // SONOSBRIDGE_SETTINGS_DIR lets tests and portable setups keep their settings elsewhere.
     private static string PathFile => System.IO.Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SonosDesktopBridge", "settings.json");
+        Environment.GetEnvironmentVariable("SONOSBRIDGE_SETTINGS_DIR")
+            ?? System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SonosDesktopBridge"),
+        "settings.json");
 
     public static AppSettings Load()
     {
@@ -36,7 +42,7 @@ internal sealed class AppSettings
     }
 }
 
-internal sealed record AudioOutput(string Id, string Name)
+internal sealed record AudioOutput(string Id, string Name, bool Available = true)
 {
     public override string ToString() => Name;
 }

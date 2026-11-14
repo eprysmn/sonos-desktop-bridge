@@ -4,8 +4,10 @@ namespace SonosDesktopBridge;
 
 public partial class App : Application
 {
-    private const string MutexName = @"Local\SonosDesktopBridge.SingleInstance";
-    private const string ShowEventName = @"Local\SonosDesktopBridge.Show";
+    // A custom settings folder (tests, portable setups) gets its own single-instance scope.
+    private static readonly string Scope = Environment.GetEnvironmentVariable("SONOSBRIDGE_SETTINGS_DIR") is null ? "" : ".alt";
+    private static readonly string MutexName = @"Local\SonosDesktopBridge.SingleInstance" + Scope;
+    private static readonly string ShowEventName = @"Local\SonosDesktopBridge.Show" + Scope;
     private Mutex? _mutex;
     private EventWaitHandle? _showEvent;
 

@@ -37,6 +37,7 @@ public partial class MainWindow : Window
     private string _sourceLabel = "";
     private string _groupSignature = "";
     private string? _outputId;
+    private readonly DispatcherTimer _scanRetry = new() { Interval = TimeSpan.FromSeconds(10) };
     private CancellationTokenSource? _sliderDelay;
 
     public MainWindow()
@@ -47,6 +48,8 @@ public partial class MainWindow : Window
         _poll.Tick += async (_, _) => await RefreshStateAsync();
         _outputTimer.Tick += (_, _) => EvaluateOutput();
         _keyFlush.Tick += async (_, _) => await FlushKeysAsync();
+        // The Sonos may not be reachable yet (PC just booted, speaker waking up): keep trying quietly.
+        _scanRetry.Tick += async (_, _) => { _scanRetry.Stop(); await ScanAsync(); };
         Loaded += async (_, _) => await ScanAsync();
         Closing += MainWindow_Closing;
 
@@ -54,6 +57,8 @@ public partial class MainWindow : Window
         InterceptBox.IsChecked = _settings.InterceptKeys;
         OnlyLineInBox.IsChecked = _settings.OnlyLineIn;
         OsdBox.IsChecked = _settings.ShowOsd;
+        LockRoomBox.IsChecked = _settings.LockRoom;
+        LockOutputBox.IsChecked = _settings.LockOutput;
         AutostartBox.IsChecked = Autostart.IsEnabled;
         if (Installer.IsInstalledCopy)
         {
@@ -66,10 +71,10 @@ public partial class MainWindow : Window
             UninstallButton.Visibility = Visibility.Collapsed;
         }
 
-        // First run: assume the current Windows output is the Sonos one, but only start pinning it
-        // at 100 % once the user has chosen it explicitly in the list.
-        _outputId = _settings.OutputId ?? AudioOutputs.DefaultId();
+        // Nothing is assumed: the Sonos room and the Windows output are chosen once, then remembered (and lockable).
+        _outputId = _settings.OutputId;
         LoadOutputs();
+        ApplyLocks();
 
         try
         {
@@ -145,8 +150,18 @@ public partial class MainWindow : Window
         _loadingOutputs = true;
         _outputs.Clear();
         foreach (var o in AudioOutputs.List()) _outputs.Add(o);
+        // Keep the saved device visible even when it is not connected right now (e.g. a headset that is off).
+        if (_outputId is not null && !_outputs.Any(o => o.Id == _outputId) && !string.IsNullOrEmpty(_settings.OutputName))
+            _outputs.Add(new AudioOutput(_outputId, _settings.OutputName + " (indisponible)", false));
         OutputPicker.SelectedItem = _outputs.FirstOrDefault(o => o.Id == _outputId);
         _loadingOutputs = false;
+    }
+
+    /// <summary>Greys out the room / output lists once a value is saved and its lock is on.</summary>
+    private void ApplyLocks()
+    {
+        DevicePicker.IsEnabled = !(LockRoomBox.IsChecked == true && _settings.RoomName is not null);
+        OutputPicker.IsEnabled = !(LockOutputBox.IsChecked == true && _settings.OutputId is not null);
     }
 
     private void OutputPicker_DropDownOpened(object? sender, EventArgs e)
@@ -157,35 +172,54 @@ public partial class MainWindow : Window
 
     private void OutputPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_loadingOutputs || OutputPicker.SelectedItem is not AudioOutput output) return;
+        if (_loadingOutputs || OutputPicker.SelectedItem is not AudioOutput { Available: true } output) return;
         _outputId = output.Id;
         _settings.OutputId = output.Id;
+        _settings.OutputName = output.Name;
         _settings.Save();
+        ApplyLocks();
         EvaluateOutput();
+    }
+
+    /// <summary>True when the current default Windows output is the one configured for the Sonos.</summary>
+    private bool IsSonosOutput(string? currentId)
+    {
+        if (currentId is null || _settings.OutputId is null) return false;
+        if (string.Equals(currentId, _settings.OutputId, StringComparison.OrdinalIgnoreCase)) return true;
+
+        // Fallback: Windows sometimes gives a device a new id (driver reinstall). If the saved device is
+        // gone and the active one carries the same name, adopt it.
+        var all = AudioOutputs.List();
+        if (all.Any(o => string.Equals(o.Id, _settings.OutputId, StringComparison.OrdinalIgnoreCase))) return false;
+        var name = all.FirstOrDefault(o => o.Id == currentId)?.Name;
+        if (name is null || name != _settings.OutputName) return false;
+        _outputId = _settings.OutputId = currentId;
+        _settings.Save();
+        return true;
     }
 
     /// <summary>Decides whether the volume keys drive Sonos or are left to Windows.</summary>
     private void EvaluateOutput()
     {
         var current = AudioOutputs.DefaultId();
-        var onSonosOutput = _outputId is not null && string.Equals(current, _outputId, StringComparison.OrdinalIgnoreCase);
+        var configured = _settings.OutputId is not null;
+        var onSonosOutput = IsSonosOutput(current);
         var sourceOk = OnlyLineInBox.IsChecked != true || _isLineIn;
-        var wanted = InterceptBox.IsChecked == true && _sonos.IsConnected;
+        var wanted = InterceptBox.IsChecked == true && _sonos.IsConnected && configured;
         var active = wanted && onSonosOutput && sourceOk;
         if (_hook is not null) _hook.Enabled = active;
-        if (onSonosOutput && wanted && _settings.OutputId is not null) AudioOutputs.EnsureFull(current!);
+        if (wanted && onSonosOutput) AudioOutputs.EnsureFull(current!);
 
-        if (!_sonos.IsConnected) OutputHint.Text = "En attente de la connexion Sonos.";
+        if (!configured) OutputHint.Text = "Choisis la sortie Windows reliée à ton Sonos : sans elle, les touches de volume restent à Windows.";
+        else if (!_sonos.IsConnected) OutputHint.Text = "En attente de la connexion Sonos.";
         else if (InterceptBox.IsChecked != true) OutputHint.Text = "Interception des touches désactivée.";
         else if (!onSonosOutput)
         {
-            var name = _outputs.FirstOrDefault(o => o.Id == current)?.Name ?? AudioOutputs.List().FirstOrDefault(o => o.Id == current)?.Name ?? "autre sortie";
-            OutputHint.Text = $"Sortie Windows active : {name}. Le volume reste géré par Windows.";
+            var name = AudioOutputs.List().FirstOrDefault(o => o.Id == current)?.Name ?? "autre sortie";
+            OutputHint.Text = $"Sortie Windows active : {name}. Le volume reste géré par Windows (sortie Sonos : {_settings.OutputName}).";
         }
         else if (!sourceOk) OutputHint.Text = "Sonos n'est pas sur l'entrée source locale : les touches restent à Windows.";
-        else OutputHint.Text = _settings.OutputId is null
-            ? "Les touches pilotent Sonos. Choisis ta sortie dans la liste pour que Windows reste automatiquement à 100 %."
-            : "Cette sortie est active : les touches de volume pilotent Sonos et Windows reste à 100 %.";
+        else OutputHint.Text = "Cette sortie est active : les touches de volume pilotent Sonos et Windows reste à 100 %.";
     }
 
     // ---- Keys & OSD ----
@@ -239,8 +273,11 @@ public partial class MainWindow : Window
         _settings.InterceptKeys = InterceptBox.IsChecked == true;
         _settings.OnlyLineIn = OnlyLineInBox.IsChecked == true;
         _settings.ShowOsd = OsdBox.IsChecked == true;
+        _settings.LockRoom = LockRoomBox.IsChecked == true;
+        _settings.LockOutput = LockOutputBox.IsChecked == true;
         _settings.Step = Step;
         _settings.Save();
+        ApplyLocks();
         EvaluateOutput();
         if (_syncing) return;
         _syncing = true;
@@ -269,19 +306,42 @@ public partial class MainWindow : Window
             {
                 DeviceHint.Text = "Aucun lecteur détecté. Vérifie que le PC et les Sonos sont sur le même réseau local et que le pare-feu autorise la découverte réseau.";
                 SetStatus("Introuvable", "#C96B6B");
+                _scanRetry.Start();
                 return;
             }
             var rooms = await _sonos.LoadRoomsAsync(ips);
-            var current = (DevicePicker.SelectedItem as Room)?.Name ?? _settings.RoomName ?? await _sonos.FindLineInRoomAsync();
+
+            // The saved room always wins when locked. Nothing is ever picked automatically.
+            var target = _settings.RoomName;
+            if (LockRoomBox.IsChecked != true && DevicePicker.SelectedItem is Room selected) target = selected.Name;
             _rooms.Clear();
             foreach (var room in rooms) _rooms.Add(room);
-            DeviceHint.Text = $"{_rooms.Count} pièce(s) détectée(s).";
-            DevicePicker.SelectedItem = _rooms.FirstOrDefault(r => r.Name == current) ?? _rooms[0];
+
+            var match = target is null ? null : _rooms.FirstOrDefault(r => r.Name == target);
+            if (match is not null)
+            {
+                DeviceHint.Text = $"{_rooms.Count} pièce(s) détectée(s).";
+                DevicePicker.SelectedItem = match;
+            }
+            else if (target is null)
+            {
+                DeviceHint.Text = "Choisis la pièce reliée à ton PC. Elle sera mémorisée et verrouillée.";
+                SetStatus("À configurer", "#D5A85C");
+            }
+            else
+            {
+                SourceText.Text = $"Pièce verrouillée : {target}";
+                DeviceHint.Text = $"La pièce « {target} » est introuvable (éteinte ou renommée ?). Nouvel essai automatique ; pour en choisir une autre, désactive « Verrouiller la pièce Sonos » dans Réglages.";
+                SetStatus("Pièce introuvable", "#C96B6B");
+                _scanRetry.Start();
+            }
+            ApplyLocks();
         }
         catch (Exception ex)
         {
             DeviceHint.Text = "Échec de la découverte : " + ex.Message;
             SetStatus("Erreur", "#C96B6B");
+            _scanRetry.Start();
         }
     }
 
@@ -297,6 +357,7 @@ public partial class MainWindow : Window
             _settings.RoomName = room.Name;
             _settings.LastIp = room.Ip;
             _settings.Save();
+            ApplyLocks();
             await RefreshStateAsync(force: true);
             if (!_sonos.IsConnected) return;
             VolumeSlider.IsEnabled = true;

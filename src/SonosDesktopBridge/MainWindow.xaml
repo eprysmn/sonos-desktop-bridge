@@ -81,6 +81,10 @@
       <TextBlock Text="Réglages" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextMuted}" Margin="2,24,0,8"/>
       <Border Background="{StaticResource Panel}" CornerRadius="22" Padding="20,6">
         <StackPanel>
+          <CheckBox x:Name="LockRoomBox" Content="Verrouiller la pièce Sonos" IsChecked="True" Margin="0,14" Checked="Options_Changed" Unchecked="Options_Changed"/>
+          <Border Height="1" Background="#2A2A2D"/>
+          <CheckBox x:Name="LockOutputBox" Content="Verrouiller la sortie Windows" IsChecked="True" Margin="0,14" Checked="Options_Changed" Unchecked="Options_Changed"/>
+          <Border Height="1" Background="#2A2A2D"/>
           <CheckBox x:Name="InterceptBox" Content="Touches de volume du clavier" IsChecked="True" Margin="0,14" Checked="Options_Changed" Unchecked="Options_Changed"/>
           <Border Height="1" Background="#2A2A2D"/>
           <DockPanel Margin="0,10">
