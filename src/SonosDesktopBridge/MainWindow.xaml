@@ -81,11 +81,26 @@
       <TextBlock Text="Réglages" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextMuted}" Margin="2,24,0,8"/>
       <Border Background="{StaticResource Panel}" CornerRadius="22" Padding="20,6">
         <StackPanel>
-          <CheckBox x:Name="LockRoomBox" Content="Verrouiller la pièce Sonos" IsChecked="True" Margin="0,14" Checked="Options_Changed" Unchecked="Options_Changed"/>
+          <CheckBox x:Name="LockRoomBox" IsChecked="True" Margin="0,14" Checked="Options_Changed" Unchecked="Options_Changed">
+            <StackPanel>
+              <TextBlock Text="Verrouiller la pièce Sonos"/>
+              <TextBlock Text="Garde la pièce choisie à chaque démarrage. Désactive pour en changer." FontSize="11" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" Margin="0,3,0,0"/>
+            </StackPanel>
+          </CheckBox>
           <Border Height="1" Background="#2A2A2D"/>
-          <CheckBox x:Name="LockOutputBox" Content="Verrouiller la sortie Windows" IsChecked="True" Margin="0,14" Checked="Options_Changed" Unchecked="Options_Changed"/>
+          <CheckBox x:Name="LockOutputBox" IsChecked="True" Margin="0,14" Checked="Options_Changed" Unchecked="Options_Changed">
+            <StackPanel>
+              <TextBlock Text="Verrouiller la sortie Windows"/>
+              <TextBlock Text="Évite de changer par erreur la sortie Windows reliée à Sonos." FontSize="11" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" Margin="0,3,0,0"/>
+            </StackPanel>
+          </CheckBox>
           <Border Height="1" Background="#2A2A2D"/>
-          <CheckBox x:Name="InterceptBox" Content="Touches de volume du clavier" IsChecked="True" Margin="0,14" Checked="Options_Changed" Unchecked="Options_Changed"/>
+          <CheckBox x:Name="InterceptBox" IsChecked="True" Margin="0,14" Checked="Options_Changed" Unchecked="Options_Changed">
+            <StackPanel>
+              <TextBlock Text="Touches de volume du clavier"/>
+              <TextBlock Text="Les touches +, − et muet de ton clavier règlent le volume Sonos." FontSize="11" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" Margin="0,3,0,0"/>
+            </StackPanel>
+          </CheckBox>
           <Border Height="1" Background="#2A2A2D"/>
           <DockPanel Margin="0,10">
             <ComboBox x:Name="StepPicker" Width="86" Height="36" DockPanel.Dock="Right" SelectionChanged="Options_Changed">
@@ -94,12 +109,26 @@
             <TextBlock Text="Pas par appui" FontSize="13" VerticalAlignment="Center"/>
           </DockPanel>
           <Border Height="1" Background="#2A2A2D"/>
+          <CheckBox x:Name="OnlyLineInBox" Margin="0,14" Checked="Options_Changed" Unchecked="Options_Changed">
+            <StackPanel>
+              <TextBlock Text="Seulement si Sonos est sur l'entrée source locale"/>
+              <TextBlock Text="L'entrée source locale (ligne) est celle qui diffuse le son de ton PC. Activé : les touches ne pilotent Sonos que dans ce cas ; si Sonos joue autre chose (Spotify, radio…), elles restent à Windows. Désactivé : elles pilotent Sonos dès que la sortie Windows choisie est active." FontSize="11" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" Margin="0,3,0,0"/>
+            </StackPanel>
+          </CheckBox>
           <Border Height="1" Background="#2A2A2D"/>
-          <CheckBox x:Name="OnlyLineInBox" Content="Seulement si Sonos est sur l'entrée source locale" Margin="0,14" Checked="Options_Changed" Unchecked="Options_Changed"/>
+          <CheckBox x:Name="OsdBox" IsChecked="True" Margin="0,14" Checked="Options_Changed" Unchecked="Options_Changed">
+            <StackPanel>
+              <TextBlock Text="Indicateur de volume à l'écran"/>
+              <TextBlock Text="Affiche brièvement la pièce, la source et le volume quand tu utilises les touches." FontSize="11" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" Margin="0,3,0,0"/>
+            </StackPanel>
+          </CheckBox>
           <Border Height="1" Background="#2A2A2D"/>
-          <CheckBox x:Name="OsdBox" Content="Indicateur de volume à l'écran" IsChecked="True" Margin="0,14" Checked="Options_Changed" Unchecked="Options_Changed"/>
-          <Border Height="1" Background="#2A2A2D"/>
-          <CheckBox x:Name="AutostartBox" Content="Démarrer avec Windows" Margin="0,14" Checked="Options_Changed" Unchecked="Options_Changed"/>
+          <CheckBox x:Name="AutostartBox" Margin="0,14" Checked="Options_Changed" Unchecked="Options_Changed">
+            <StackPanel>
+              <TextBlock Text="Démarrer avec Windows"/>
+              <TextBlock Text="Lance le programme en arrière-plan à l'ouverture de session." FontSize="11" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" Margin="0,3,0,0"/>
+            </StackPanel>
+          </CheckBox>
         </StackPanel>
       </Border>
 
