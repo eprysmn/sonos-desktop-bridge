@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0
+
+- The Sonos room and the Windows output are now explicit settings that can be locked. The app no longer picks a room automatically at startup (it could select whichever room happened to be playing).
+- Volume keys stay with Windows until a Windows output has been chosen.
+- Saved Windows output is re-matched by name if Windows changes its device id; an unavailable saved output stays visible in the list.
+- Automatic retry (every 10 s) when the locked room is unreachable, e.g. right after boot.
+- `SONOSBRIDGE_SETTINGS_DIR` environment variable to keep settings in another folder.
+
 ## 0.5.0
 
 - Per-room volume sliders under the global group slider.

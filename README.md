@@ -25,6 +25,7 @@ Sonos Desktop Bridge closes that gap:
 - **Hardware volume keys → Sonos.** Global hook for the three media keys, with a configurable step (1–5 %) and fast, debounced updates.
 - **On-screen volume indicator** in the style of the Sonos app: room name, current source, volume and a progress bar. Click-through, never steals focus.
 - **Output awareness.** Pick the Windows playback device wired to your Sonos; the app only intercepts the keys while that device is the default output. It can also keep that device pinned at 100 % and unmuted.
+- **Locked configuration.** The Sonos room and the Windows output are chosen once and locked, so the app behaves the same after every reboot.
 - **Optional "line-in only" mode.** Only intercept the keys while the Sonos is actually playing its line-in (local source).
 - **Group and per-room volume.** One global slider plus one slider per room, like the Sonos app.
 - **Stereo pairs and groups handled correctly.** The app resolves the group coordinator from the Sonos topology, so a stereo pair is controlled as a single room.
@@ -59,10 +60,13 @@ SonosDesktopBridge.exe --tray         # start minimized to the notification area
 
 ## Usage
 
-1. Start the app. It discovers your Sonos players and selects the room that is currently playing its line-in; otherwise pick one from the list.
+1. **One-time setup.** Start the app and pick the Sonos room your PC is wired to. Nothing is chosen automatically, so music playing in another room can never hijack the keys.
 2. In **Sortie Windows** (*Windows output*), choose the playback device connected to your Sonos adapter. From then on Windows is kept at 100 % on that device.
-3. Press the volume keys. The indicator appears and the Sonos volume changes.
-4. Closing the window keeps the app running in the notification area; right-click the icon → *Quitter* (*Quit*) to exit.
+3. Both choices are **remembered and locked** (the lists are greyed out). To change one, switch off *Verrouiller la pièce Sonos* / *Verrouiller la sortie Windows* (*Lock the Sonos room / Windows output*) in the settings card.
+4. Press the volume keys. The indicator appears and the Sonos volume changes.
+5. Closing the window keeps the app running in the notification area; right-click the icon → *Quitter* (*Quit*) to exit.
+
+Until a Windows output is chosen, the volume keys are left to Windows. If the locked room is not reachable (speaker off, network not ready after boot), the app keeps retrying every 10 seconds. If Windows gives the chosen output a new device id, the app re-matches it by name.
 
 Settings are stored in `%APPDATA%\SonosDesktopBridge\settings.json`.
 
