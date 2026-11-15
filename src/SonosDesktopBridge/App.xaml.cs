@@ -13,6 +13,7 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        Loc.Set(AppSettings.Load().Language);
         var quiet = e.Args.Contains("--quiet");
         if (e.Args.Contains("--install"))
         {
@@ -24,7 +25,7 @@ public partial class App : Application
         if (e.Args.Contains("--uninstall"))
         {
             var answer = quiet ? MessageBoxResult.Yes
-                : MessageBox.Show("Désinstaller Sonos Desktop Bridge ?", "Sonos Desktop Bridge", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                : MessageBox.Show(Loc.T("uninstall.confirm"), "Sonos Desktop Bridge", MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (answer == MessageBoxResult.Yes) Installer.Uninstall();
             Shutdown();
             return;
@@ -51,5 +52,9 @@ public partial class App : Application
         }) { IsBackground = true }.Start();
 
         base.OnStartup(e);
+        var window = new MainWindow();
+        MainWindow = window;
+        // Started by Windows (--tray): live silently in the notification area, unless the first-run setup is still pending.
+        if (!e.Args.Contains("--tray") || window.NeedsSetup) window.Show();
     }
 }

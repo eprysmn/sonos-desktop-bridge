@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>SonosDesktopBridge</AssemblyName>
     <RootNamespace>SonosDesktopBridge</RootNamespace>
-    <Version>0.6.1</Version>
+    <Version>0.8.0</Version>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <Product>Sonos Desktop Bridge</Product>
   </PropertyGroup>
@@ -18,6 +18,8 @@
   </ItemGroup>
   <ItemGroup>
     <Resource Include="app.ico" />
+    <Resource Include="logo.png" />
     <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
   </ItemGroup>
 </Project>
+

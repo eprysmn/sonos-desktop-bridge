@@ -44,7 +44,7 @@ internal static class Installer
         shortcut.TargetPath = InstalledExe;
         shortcut.WorkingDirectory = InstallDir;
         shortcut.IconLocation = InstalledExe + ",0";
-        shortcut.Description = "Pilote le volume des enceintes Sonos depuis le clavier";
+        shortcut.Description = Loc.T("shortcut.desc");
         shortcut.Save();
 
         using (var key = Registry.CurrentUser.CreateSubKey(UninstallKey))

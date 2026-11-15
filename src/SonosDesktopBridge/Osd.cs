@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
@@ -19,6 +19,7 @@ internal sealed class OsdWindow : Window
     private readonly TextBlock _unit = new() { Text = "%", FontSize = 14, Foreground = new SolidColorBrush(Color.FromRgb(0x8E, 0x8E, 0x93)), VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(3, 0, 0, 7) };
     private readonly Border _fill = new() { Height = 10, CornerRadius = new CornerRadius(5), HorizontalAlignment = HorizontalAlignment.Left, Background = Brushes.White };
     private readonly DispatcherTimer _hide = new() { Interval = TimeSpan.FromMilliseconds(1800) };
+    private readonly Grid _bar = new() { Width = BarWidth, Margin = new Thickness(0, 14, 0, 0) };
     private int _generation;
 
     public OsdWindow()
@@ -35,9 +36,8 @@ internal sealed class OsdWindow : Window
         Opacity = 0;
 
         var track = new Border { Height = 10, Width = BarWidth, CornerRadius = new CornerRadius(5), Background = new SolidColorBrush(Color.FromRgb(0x3A, 0x3A, 0x3D)) };
-        var bar = new Grid { Width = BarWidth, Margin = new Thickness(0, 14, 0, 0) };
-        bar.Children.Add(track);
-        bar.Children.Add(_fill);
+        _bar.Children.Add(track);
+        _bar.Children.Add(_fill);
 
         var texts = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         texts.Children.Add(_room);
@@ -52,7 +52,7 @@ internal sealed class OsdWindow : Window
 
         var stack = new StackPanel();
         stack.Children.Add(top);
-        stack.Children.Add(bar);
+        stack.Children.Add(_bar);
 
         Content = new Border
         {
@@ -78,11 +78,29 @@ internal sealed class OsdWindow : Window
     {
         _room.Text = room;
         _source.Text = source;
-        _value.Text = muted ? "Muet" : volume.ToString();
+        _value.FontSize = 34;
+        _value.Text = muted ? Loc.T("osd.mute") : volume.ToString();
         _unit.Visibility = muted ? Visibility.Collapsed : Visibility.Visible;
+        _bar.Visibility = Visibility.Visible;
         _fill.Width = Math.Max(10, BarWidth * Math.Clamp(volume, 0, 100) / 100.0);
         _fill.Opacity = muted ? 0.35 : 1;
+        Present();
+    }
 
+    /// <summary>Shows a short action label (Play, Pause, Next…) without the volume bar.</summary>
+    public void ShowMessage(string room, string source, string text)
+    {
+        _room.Text = room;
+        _source.Text = source;
+        _value.FontSize = 30;
+        _value.Text = text;
+        _unit.Visibility = Visibility.Collapsed;
+        _bar.Visibility = Visibility.Collapsed;
+        Present();
+    }
+
+    private void Present()
+    {
         _generation++;
         if (!IsVisible) { Opacity = 0; Show(); }
         UpdateLayout();

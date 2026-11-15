@@ -12,6 +12,12 @@ internal sealed class AppSettings
     public string? LastIp { get; set; }
     public string? OutputId { get; set; }
     public string? OutputName { get; set; }
+    public string Language { get; set; } = "auto";
+    public bool MediaKeys { get; set; } = true;
+    public int SleepAction { get; set; }
+    public int DefaultVolume { get; set; }
+    public bool SetupDone { get; set; }
+    public int MaxVolume { get; set; } = 100;
     public bool LockRoom { get; set; } = true;
     public bool LockOutput { get; set; } = true;
     public int Step { get; set; } = 2;
@@ -110,10 +116,11 @@ internal static class Autostart
     }
 }
 
-/// <summary>Global low-level hook that swallows the Windows volume keys.</summary>
+/// <summary>Global low-level hook that swallows the Windows volume keys and, optionally, the media keys.</summary>
 internal sealed class VolumeKeyHook : IDisposable
 {
     public const int VolumeMute = 0xAD, VolumeDown = 0xAE, VolumeUp = 0xAF;
+    public const int MediaNext = 0xB0, MediaPrev = 0xB1, MediaStop = 0xB2, MediaPlayPause = 0xB3;
 
     private const int WH_KEYBOARD_LL = 13, WM_KEYDOWN = 0x100, WM_KEYUP = 0x101, WM_SYSKEYDOWN = 0x104, WM_SYSKEYUP = 0x105;
     private delegate IntPtr HookProc(int code, IntPtr wParam, IntPtr lParam);
@@ -137,11 +144,13 @@ internal sealed class VolumeKeyHook : IDisposable
         if (code >= 0)
         {
             var vk = Marshal.ReadInt32(lParam);
-            if (Enabled && vk is VolumeMute or VolumeDown or VolumeUp)
+            var isVolume = vk is VolumeMute or VolumeDown or VolumeUp;
+            var isMedia = vk is MediaNext or MediaPrev or MediaStop or MediaPlayPause;
+            if ((isVolume && Enabled) || (isMedia && MediaEnabled))
             {
                 var msg = (int)wParam;
                 if (msg is WM_KEYDOWN or WM_SYSKEYDOWN) KeyDown?.Invoke(vk);
-                return (IntPtr)1; // swallow both down and up so Windows never changes its own volume
+                return (IntPtr)1; // swallow both down and up so Windows never reacts to the key
             }
         }
         return CallNextHookEx(_hook, code, wParam, lParam);
@@ -149,6 +158,9 @@ internal sealed class VolumeKeyHook : IDisposable
 
     /// <summary>When false, volume keys pass through to Windows untouched.</summary>
     public volatile bool Enabled;
+
+    /// <summary>When false, media keys (play/pause, next, previous, stop) pass through to Windows untouched.</summary>
+    public volatile bool MediaEnabled;
 
     public void Dispose()
     {

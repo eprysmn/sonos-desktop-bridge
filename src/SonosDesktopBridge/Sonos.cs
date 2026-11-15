@@ -29,7 +29,7 @@ internal sealed record Group(string CoordinatorUuid, List<Member> Members)
 
 internal sealed record RoomVolume(string Name, int Volume);
 
-internal sealed record SonosState(int Volume, bool Muted, string Source, bool IsLineIn, string GroupLabel, List<RoomVolume> Rooms);
+internal sealed record SonosState(int Volume, bool Muted, string Source, bool IsLineIn, string GroupLabel, List<RoomVolume> Rooms, bool Playing);
 
 internal sealed class SonosController
 {
@@ -57,7 +57,7 @@ internal sealed class SonosController
             try { await LoadTopologyAsync(ip); return AllRooms(); }
             catch (Exception ex) { last = ex; }
         }
-        throw last ?? new InvalidOperationException("Aucun lecteur Sonos joignable.");
+        throw last ?? new InvalidOperationException(Loc.T("err.noplayer"));
     }
 
     /// <summary>First room whose group is playing the local (line-in) source, if any.</summary>
@@ -88,7 +88,7 @@ internal sealed class SonosController
     {
         var doc = await SoapAsync(ip, "/ZoneGroupTopology/Control", Topology, "GetZoneGroupState", "");
         var text = doc.Descendants().FirstOrDefault(x => x.Name.LocalName == "ZoneGroupState")?.Value
-                   ?? throw new InvalidOperationException("Topologie Sonos illisible.");
+                   ?? throw new InvalidOperationException(Loc.T("err.topology"));
         var groups = new List<Group>();
         foreach (var g in XDocument.Parse(text).Descendants().Where(x => x.Name.LocalName == "ZoneGroup"))
         {
@@ -102,7 +102,7 @@ internal sealed class SonosController
             }
             if (members.Count > 0) groups.Add(new Group((string?)g.Attribute("Coordinator") ?? members[0].Uuid, members));
         }
-        if (groups.Count == 0) throw new InvalidOperationException("Aucun groupe Sonos trouvé.");
+        if (groups.Count == 0) throw new InvalidOperationException(Loc.T("err.nogroups"));
         _groups = groups;
         _entryIp = ip;
         if (_roomName is not null) Resolve();
@@ -126,9 +126,9 @@ internal sealed class SonosController
             try { await LoadTopologyAsync(ip); ok = true; break; }
             catch (Exception ex) { last = ex; }
         }
-        if (!ok) throw last ?? new InvalidOperationException("Sonos injoignable.");
+        if (!ok) throw last ?? new InvalidOperationException(Loc.T("err.unreach"));
 
-        var group = CurrentGroup ?? throw new InvalidOperationException($"Pièce « {_roomName} » introuvable.");
+        var group = CurrentGroup ?? throw new InvalidOperationException(Loc.T("err.roomgone", _roomName ?? ""));
         var label = string.Join(" + ", group.Rooms.Select(r => r.Name));
         var vol = await SoapAsync(_coordIp!, "/MediaRenderer/GroupRenderingControl/Control", GroupRendering, "GetGroupVolume", "<InstanceID>0</InstanceID>");
         var mute = await SoapAsync(_coordIp!, "/MediaRenderer/GroupRenderingControl/Control", GroupRendering, "GetGroupMute", "<InstanceID>0</InstanceID>");
@@ -142,6 +142,8 @@ internal sealed class SonosController
             uri = media.Descendants().FirstOrDefault(x => x.Name.LocalName == "CurrentURI")?.Value ?? "";
         }
         catch { /* Source is informational only. */ }
+        var playing = false;
+        try { playing = await IsPlayingAsync(); } catch { }
         var rooms = await Task.WhenAll(group.Rooms.OrderBy(r => r.Name).Select(async r =>
         {
             try
@@ -151,17 +153,17 @@ internal sealed class SonosController
             }
             catch { return new RoomVolume(r.Name, -1); }
         }));
-        return new SonosState(volume, muted, DescribeSource(uri), uri.StartsWith("x-rincon-stream:", StringComparison.OrdinalIgnoreCase), label, rooms.ToList());
+        return new SonosState(volume, muted, DescribeSource(uri), uri.StartsWith("x-rincon-stream:", StringComparison.OrdinalIgnoreCase), label, rooms.ToList(), playing);
     }
 
     private static string DescribeSource(string uri)
     {
-        if (string.IsNullOrEmpty(uri)) return "Aucune lecture";
-        if (uri.StartsWith("x-rincon-stream:", StringComparison.OrdinalIgnoreCase)) return "Entrée source locale";
-        if (uri.StartsWith("x-sonos-htastream:", StringComparison.OrdinalIgnoreCase)) return "TV";
+        if (string.IsNullOrEmpty(uri)) return Loc.T("src.idle");
+        if (uri.StartsWith("x-rincon-stream:", StringComparison.OrdinalIgnoreCase)) return Loc.T("src.linein");
+        if (uri.StartsWith("x-sonos-htastream:", StringComparison.OrdinalIgnoreCase)) return Loc.T("src.tv");
         if (uri.StartsWith("x-sonos-vli:", StringComparison.OrdinalIgnoreCase) || uri.StartsWith("x-sonosapi-", StringComparison.OrdinalIgnoreCase)
-            || uri.StartsWith("x-rincon-mp3radio:", StringComparison.OrdinalIgnoreCase)) return "Streaming";
-        return "Bibliothèque / AirPlay";
+            || uri.StartsWith("x-rincon-mp3radio:", StringComparison.OrdinalIgnoreCase)) return Loc.T("src.stream");
+        return Loc.T("src.library");
     }
 
     public async Task<int> AdjustVolumeAsync(int delta)
@@ -179,11 +181,26 @@ internal sealed class SonosController
             $"<InstanceID>0</InstanceID><DesiredVolume>{Math.Clamp(volume, 0, 100)}</DesiredVolume>");
     }
 
+    // ---- Transport (play / pause / next / previous) on the group coordinator ----
+
+    public async Task<bool> IsPlayingAsync()
+    {
+        EnsureConnected();
+        var doc = await SoapAsync(_coordIp!, "/MediaRenderer/AVTransport/Control", Transport, "GetTransportInfo", "<InstanceID>0</InstanceID>");
+        var state = doc.Descendants().FirstOrDefault(x => x.Name.LocalName == "CurrentTransportState")?.Value ?? "";
+        return state is "PLAYING" or "TRANSITIONING";
+    }
+
+    public async Task PlayAsync() { EnsureConnected(); await SoapAsync(_coordIp!, "/MediaRenderer/AVTransport/Control", Transport, "Play", "<InstanceID>0</InstanceID><Speed>1</Speed>"); }
+    public async Task PauseAsync() { EnsureConnected(); await SoapAsync(_coordIp!, "/MediaRenderer/AVTransport/Control", Transport, "Pause", "<InstanceID>0</InstanceID>"); }
+    public async Task NextAsync() { EnsureConnected(); await SoapAsync(_coordIp!, "/MediaRenderer/AVTransport/Control", Transport, "Next", "<InstanceID>0</InstanceID>"); }
+    public async Task PreviousAsync() { EnsureConnected(); await SoapAsync(_coordIp!, "/MediaRenderer/AVTransport/Control", Transport, "Previous", "<InstanceID>0</InstanceID>"); }
+
     /// <summary>Sets the volume of a single room, independently of the group volume.</summary>
     public async Task SetRoomVolumeAsync(string roomName, int volume)
     {
         EnsureConnected();
-        var room = _groups.SelectMany(g => g.Rooms).FirstOrDefault(r => r.Name == roomName) ?? throw new InvalidOperationException("Pièce inconnue.");
+        var room = _groups.SelectMany(g => g.Rooms).FirstOrDefault(r => r.Name == roomName) ?? throw new InvalidOperationException(Loc.T("err.unknownroom"));
         await SoapAsync(room.Ip, "/MediaRenderer/RenderingControl/Control", Rendering, "SetVolume",
             $"<InstanceID>0</InstanceID><Channel>Master</Channel><DesiredVolume>{Math.Clamp(volume, 0, 100)}</DesiredVolume>");
     }
@@ -199,8 +216,8 @@ internal sealed class SonosController
     public async Task JoinAsync(string roomName)
     {
         EnsureConnected();
-        var target = _groups.SelectMany(g => g.Rooms).FirstOrDefault(r => r.Name == roomName) ?? throw new InvalidOperationException("Pièce inconnue.");
-        var coordinator = CurrentGroup?.Coordinator ?? throw new InvalidOperationException("Groupe introuvable.");
+        var target = _groups.SelectMany(g => g.Rooms).FirstOrDefault(r => r.Name == roomName) ?? throw new InvalidOperationException(Loc.T("err.unknownroom"));
+        var coordinator = CurrentGroup?.Coordinator ?? throw new InvalidOperationException(Loc.T("err.nogroup"));
         await SoapAsync(target.Ip, "/MediaRenderer/AVTransport/Control", Transport, "SetAVTransportURI",
             $"<InstanceID>0</InstanceID><CurrentURI>x-rincon:{coordinator.Uuid}</CurrentURI><CurrentURIMetaData></CurrentURIMetaData>");
     }
@@ -209,11 +226,11 @@ internal sealed class SonosController
     public async Task LeaveAsync(string roomName)
     {
         EnsureConnected();
-        var target = _groups.SelectMany(g => g.Rooms).FirstOrDefault(r => r.Name == roomName) ?? throw new InvalidOperationException("Pièce inconnue.");
+        var target = _groups.SelectMany(g => g.Rooms).FirstOrDefault(r => r.Name == roomName) ?? throw new InvalidOperationException(Loc.T("err.unknownroom"));
         await SoapAsync(target.Ip, "/MediaRenderer/AVTransport/Control", Transport, "BecomeCoordinatorOfStandaloneGroup", "<InstanceID>0</InstanceID>");
     }
 
-    private void EnsureConnected() { if (_coordIp is null) throw new InvalidOperationException("Aucune pièce Sonos sélectionnée."); }
+    private void EnsureConnected() { if (_coordIp is null) throw new InvalidOperationException(Loc.T("err.noroom")); }
 
     private async Task<XDocument> SoapAsync(string ip, string path, string service, string action, string body)
     {
