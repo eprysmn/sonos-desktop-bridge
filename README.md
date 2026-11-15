@@ -25,6 +25,12 @@ Sonos Desktop Bridge closes that gap:
 - **Hardware volume keys → Sonos.** Global hook for the three media keys, with a configurable step (1–5 %) and fast, debounced updates.
 - **On-screen volume indicator** in the style of the Sonos app: room name, current source, volume and a progress bar. Click-through, never steals focus.
 - **Output awareness.** Pick the Windows playback device wired to your Sonos; the app only intercepts the keys while that device is the default output. It can also keep that device pinned at 100 % and unmuted.
+- **Bilingual UI (English / French)** that follows the Windows language, switchable live in the settings.
+- **First-run setup wizard** and a three-tab interface (Home, Rooms, Settings).
+- **Media keys** (play/pause, next, previous) control Sonos while it plays its own music (Spotify, radio…). When Sonos plays your PC's sound, the media keys stay with your Windows players.
+- **Sleep behaviour** (optional): mute Sonos when the PC really goes to sleep — not when the screen turns off, not on lock — and only if Sonos is playing your PC's sound; restored on wake-up.
+- **Startup volume** (optional): set a volume once when the app starts and when the PC wakes up, only if Sonos is playing your PC's sound.
+- **Maximum volume** setting so the keys never go above a limit you choose.
 - **Locked configuration.** The Sonos room and the Windows output are chosen once and locked, so the app behaves the same after every reboot.
 - **Optional "line-in only" mode.** Only intercept the keys while the Sonos is actually playing its line-in (local source).
 - **Group and per-room volume.** One global slider plus one slider per room, like the Sonos app.
@@ -48,7 +54,7 @@ The release build is self-contained: **no .NET SDK or runtime needs to be instal
 1. Download `SonosDesktopBridge.exe` from the [latest release](../../releases/latest).
 2. Run it. The exe is **not code-signed**, so Windows SmartScreen may warn you: click *More info* → *Run anyway*.
 3. Allow the app on private networks if the Windows firewall asks.
-4. In the **Application** card, click **Install in Windows** (the UI is currently in French: *Installer dans Windows*). This copies the app to `%LOCALAPPDATA%\Programs\Sonos Desktop Bridge`, adds a Start menu shortcut and an entry in *Settings → Apps*.
+4. In *Settings → Application*, click **Install in Windows** (the first-run wizard also offers it). This copies the app to `%LOCALAPPDATA%\Programs\Sonos Desktop Bridge`, adds a Start menu shortcut and an entry in *Settings → Apps*.
 
 Command line alternatives:
 
@@ -60,11 +66,11 @@ SonosDesktopBridge.exe --tray         # start minimized to the notification area
 
 ## Usage
 
-1. **One-time setup.** Start the app and pick the Sonos room your PC is wired to. Nothing is chosen automatically, so music playing in another room can never hijack the keys.
-2. In **Sortie Windows** (*Windows output*), choose the playback device connected to your Sonos adapter. From then on Windows is kept at 100 % on that device.
-3. Both choices are **remembered and locked** (the lists are greyed out). To change one, switch off *Verrouiller la pièce Sonos* / *Verrouiller la sortie Windows* (*Lock the Sonos room / Windows output*) in the settings card.
+1. **One-time setup.** On first launch a short wizard (five screens) asks which Sonos room your PC is wired to, which Windows output feeds it, and a few preferences. Nothing is chosen automatically, so music playing in another room can never hijack the keys. You can replay the wizard from *Settings → Application → Replay the introduction*.
+2. In *Settings → Windows output*, choose the playback device connected to your Sonos adapter. From then on Windows is kept at 100 % on that device.
+3. Both choices are **remembered and locked** (the lists are greyed out). To change one, switch off *Lock the Sonos room* / *Lock the Windows output* in the settings.
 4. Press the volume keys. The indicator appears and the Sonos volume changes.
-5. Closing the window keeps the app running in the notification area; right-click the icon → *Quitter* (*Quit*) to exit.
+5. Closing the window keeps the app running in the notification area (left-click the icon to reopen it; right-click → *Quit* to exit). When Windows starts the app at login it stays **silent**: no window, just the tray icon (check the hidden icons next to the clock).
 
 Until a Windows output is chosen, the volume keys are left to Windows. If the locked room is not reachable (speaker off, network not ready after boot), the app keeps retrying every 10 seconds. If Windows gives the chosen output a new device id, the app re-matches it by name.
 
@@ -87,7 +93,7 @@ All traffic stays on your local network, using the same UPnP/SOAP interface the 
 - **Line-in latency.** Audio through a Sonos line-in has an inherent delay (roughly 75 ms or more). That is a Sonos characteristic, not something this app can remove.
 - **Link/unlink rooms is experimental.** It has not been tested across a wide range of setups.
 - **Tested hardware:** a stereo pair of Era 100 plus a Beam and a Play on one network. Other models should work through the same standard interface but have not been verified.
-- **The user interface is currently in French.** Localization is welcome (see [Contributing](#contributing)).
+- **Languages:** the UI is available in English and French. It follows the Windows display language and can be changed in *Settings → Application → Language*. Other languages are welcome (see [Contributing](#contributing)).
 - **Unsigned executable.** SmartScreen will warn on first launch.
 
 ## Build from source
@@ -115,6 +121,7 @@ Project layout:
 | `Platform.cs` | Settings, Windows output devices, autostart, global key hook |
 | `Osd.cs` | On-screen volume indicator window |
 | `Install.cs` | Per-user install / uninstall |
+| `Loc.cs` | English / French strings and the language switch |
 | `MainWindow.xaml(.cs)` | Main UI, tray icon, application logic |
 | `App.xaml(.cs)` | Styles, single-instance handling, command-line options |
 
@@ -128,7 +135,7 @@ Project layout:
 
 Issues and pull requests are welcome, especially:
 
-- English (and other) localization of the UI
+- Other languages: every UI string lives in `src/SonosDesktopBridge/Loc.cs` (one line per string, one column per language)
 - Testing with other Sonos models and group setups
 - Code signing / winget packaging
 
